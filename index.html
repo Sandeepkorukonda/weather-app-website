@@ -12,7 +12,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
 
-
     <link rel="stylesheet" href="./index.css">
 </head>
 
@@ -20,9 +19,12 @@
     <div class="searchBar">
         <div class="searchBarParentDiv">
             <input type="text" class="inputfield" placeholder="Search City">
-            <img src="./search.png" alt="" width="35px" class="searchIcon" onclick="fetchData()">
+            <img src="./search.png" alt="Search" width="35px" class="searchIcon" id="searchBtn">
         </div>
+        <!-- Shows "City not found" and other errors -->
+        <div id="errorMsg" role="alert" style="display:none; color:#b00020; text-align:center; margin-top:8px;"></div>
     </div>
+
     <div class="mainContentParentDiv d-flex">
         <div class="leftDiv">
             <div class="currentTempDiv leftChild p-3 d-flex flex-column gap-2">
@@ -40,17 +42,14 @@
                 </div>
             </div>
 
-
             <div class="nextFiveDays leftChild p-3 d-flex flex-column gap-2">
                 <h6 class="m-0" id="comingFiveDaysTitle">Coming 5 Days</h6>
                 <div id="forecastContainer" class="d-flex flex-column gap-1"></div>
             </div>
         </div>
 
-
         <div class="rightDiv">
             <div class="rightRow rowOne d-flex gap-2 justify-content-between align-items-center">
-
                 <div class="extraMetric d-flex gap-3">
                     <img src="./flood.png" alt="" width="35px">
                     <div>
@@ -76,15 +75,14 @@
                     <img src="./eye.png" alt="" width="35px">
                     <div>
                         <h6 class="m-0">Visibility</h6>
-                        <h6 class="m-0" id="visiblity">-</h6>
+                        <h6 class="m-0" id="visibility">-</h6>
                     </div>
                 </div>
-
             </div>
 
             <div class="rightRow rowTwo d-flex justify-content-between align-items-center">
                 <div class="AQI rowTwoDiv p-3 d-flex flex-column gap-2">
-                    <h5>Air Quality Index (AQI)</h5>
+                    <h5>Air Quality Index (AQI) <small>(&micro;g/m&sup3;)</small></h5>
 
                     <div class="d-flex align-items-center justify-content-between">
                         <img src="./wind.png" alt="" width="40px">
@@ -108,14 +106,14 @@
                 </div>
 
                 <div class="sunRise rowTwoDiv p-3 gap-2">
-                    <h5 class="m-0">Sunrise & Sunset</h5>
+                    <h5 class="m-0">Sunrise &amp; Sunset</h5>
 
                     <div class="d-flex justify-content-between">
                         <div class="sunriseDiv d-flex gap-2 align-items-center">
                             <img src="./sun (1).png" alt="" width="75px">
                             <div class="d-flex flex-column gap-1">
                                 <h6 class="m-0">Sunrise</h6>
-                                <h5 class="m-0" id="sunriseTime">-:-- Am</h5>
+                                <h5 class="m-0" id="sunriseTime">-:-- AM</h5>
                             </div>
                         </div>
 
@@ -123,196 +121,193 @@
                             <img src="./moon.png" alt="" width="65px">
                             <div class="d-flex flex-column gap-2">
                                 <h6 class="m-0">Sunset</h6>
-                                <h5 class="m-0" id="sunsetTime">-:-- Pm</h5>
+                                <h5 class="m-0" id="sunsetTime">-:-- PM</h5>
                             </div>
-
                         </div>
                     </div>
-
                 </div>
-
             </div>
 
             <div class="rightRow rowThree d-flex flex-column gap-2">
-                <h5 class="m-0">Today</h5>
-                <div class="d-flex justify-content-between todayTempParentDiv" id="todayTempContainer">
-                   
-                </div>
+                <h5 class="m-0">Next hours</h5>
+                <div class="d-flex justify-content-between todayTempParentDiv" id="todayTempContainer"></div>
             </div>
-
         </div>
     </div>
 
-
-
-
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"
-        integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"
-        integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy"
-        crossorigin="anonymous"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.js"
-        integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
-
     <script>
-        function dateFormat(timestamp) {
-            const date = new Date(timestamp * 1000); // Multiply by 1000 to convert from seconds to milliseconds
-            return date.toLocaleString();// Convert to local time format and return it
+        // Paste your NEW OpenWeatherMap key here (and revoke the old ones in your dashboard).
+        const API_KEY = "YOUR_NEW_OPENWEATHER_API_KEY";
+        const BASE = "https://api.openweathermap.org/data/2.5";
+
+        const $ = (id) => document.getElementById(id);
+
+        // ---------- helpers ----------
+        // OpenWeather gives times as UTC seconds plus the city's UTC offset (seconds).
+        // Shifting by the offset and formatting as UTC shows the CITY's local time,
+        // no matter where the visitor's browser is.
+        function cityDate(ts, tz) {
+            return new Date((ts + tz) * 1000);
+        }
+        function formatTime(ts, tz) {
+            return cityDate(ts, tz).toLocaleTimeString("en-US", {
+                timeZone: "UTC", hour: "numeric", minute: "2-digit", hour12: true
+            });
+        }
+        function formatDate(ts, tz) {
+            return cityDate(ts, tz).toLocaleDateString("en-US", {
+                timeZone: "UTC", day: "numeric", month: "short", year: "numeric"
+            });
+        }
+        function dateKey(ts, tz) {
+            return cityDate(ts, tz).toISOString().slice(0, 10); // YYYY-MM-DD in city time
+        }
+        function iconUrl(code) {
+            return `https://openweathermap.org/img/wn/${code}.png`;
+        }
+        function showError(message) {
+            const box = $("errorMsg");
+            box.textContent = message;
+            box.style.display = message ? "block" : "none";
         }
 
-
+        // ---------- air quality ----------
         async function fetchAQIData(lat, lon) {
-            let fetchAQIData = await fetch(`http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=d28274b5fe592e1f1e558103a5e66370`)
-            let formattedData = await fetchAQIData.json();
-            console.log('AQI Data: ', formattedData);
-            let list = formattedData.list[0].components;
-            console.log("Line 242: ", list);
-
-            $("#no2Value")[0].innerText = list.no2
-
-            $("#o3Value")[0].innerText = list.o3
-
-            $("#coValue")[0].innerText = list.co
-
-            $("#so2Value")[0].innerText = list.so2
-
-        }
-
-        async function nextFiveDays(lat, lon) {
-
-            const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=d28274b5fe592e1f1e558103a5e66370&units=metric`;
             try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) {
-                    throw new Error("Failed to fetch weather data");
-                }
-                const data = await response.json();
-
-                let dailyForecasts = {};
-
-                // Extract unique daily data
-                data.list.forEach(item => {
-                    let date = item.dt_txt.split(" ")[0]; // Extract date only
-                    if (!dailyForecasts[date]) {
-                        dailyForecasts[date] = {
-                            temp: item.main.temp.toFixed(1), // Round temperature
-                            icon: item.weather[0].icon, // Weather icon
-                            day: new Date(date).toLocaleDateString('en-US', { weekday: 'long' }) // Get day name
-                        };
-                    }
-                });
-
-                // Get first 5 unique days
-                let forecastHtml = "";
-                Object.keys(dailyForecasts).slice(0, 5).forEach(date => {
-                    let forecast = dailyForecasts[date];
-                    forecastHtml += `
-                        <div class="forecastRow d-flex align-items-center justify-content-between">
-                            <div class="d-flex gap-1 align-items-center">
-                                <img src="./cloud.png" alt="" width="35px">
-                                <h6 class="m-0">${forecast.temp} &deg;C</h6>
-                            </div>
-                            <h6 class="m-0">${forecast.day}</h6>
-                            <h6 class="m-0">${date}</h6>
-                        </div>
-                    `;
-                });
-
-                document.getElementById("forecastContainer").innerHTML = forecastHtml;
-
-            } catch (error) {
-                console.error(error);
-                alert("Failed to retrieve weather data. Please check your API key.");
+                const res = await fetch(`${BASE}/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`);
+                if (!res.ok) throw new Error("AQI request failed");
+                const data = await res.json();
+                const c = data.list[0].components;
+                $("coValue").innerText = c.co;
+                $("so2Value").innerText = c.so2;
+                $("o3Value").innerText = c.o3;
+                $("no2Value").innerText = c.no2;
+            } catch (err) {
+                console.error(err);
+                ["coValue", "so2Value", "o3Value", "no2Value"].forEach((id) => ($(id).innerText = "N/A"));
             }
         }
 
-        async function todayTemps(lat, lon) {
-            const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=ed493c16384282969d7f1241d72924cd&units=metric`;
-
+        // ---------- forecast (one request, used for both sections) ----------
+        async function fetchForecast(lat, lon) {
             try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) {
-                    throw new Error("Failed to fetch weather data");
-                }
-                const data = await response.json();
-
-                let todayDate = new Date().toISOString().split("T")[0]; // Get today's date (YYYY-MM-DD)
-                let todayForecasts = data.list.filter(item => item.dt_txt.startsWith(todayDate)); // Get today's data
-
-                // Select specific time intervals (e.g., every 3 hours from the API)
-                let selectedHours = todayForecasts.slice(0, 6); // Get first 6 hourly forecasts
-
-                let todayHtml = "";
-                selectedHours.forEach(item => {
-                    let time = new Date(item.dt_txt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }); // Format time
-                    let temp = item.main.temp.toFixed(1); // Round temperature
-                    let icon = item.weather[0].icon; // Weather icon
-
-                    todayHtml += `
-                        <div class="todayTemp">
-                            <h6 class="m-0">${time}</h6>
-                            <img src="./cloudy.png" alt="" width="35px">
-                            <h5>${temp}&deg;C</h5>
-                        </div>
-                    `;
-                });
-
-                document.getElementById("todayTempContainer").innerHTML = todayHtml;
-
-            } catch (error) {
-                console.error(error);
-                alert("Failed to retrieve weather data. Please check your API key.");
+                const res = await fetch(`${BASE}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
+                if (!res.ok) throw new Error("Forecast request failed");
+                const data = await res.json();
+                const tz = data.city.timezone;
+                renderFiveDays(data.list, tz);
+                renderNextHours(data.list, tz);
+            } catch (err) {
+                console.error(err);
+                $("forecastContainer").innerHTML = "<h6 class='m-0'>Forecast unavailable</h6>";
+                $("todayTempContainer").innerHTML = "";
             }
         }
 
+        function renderFiveDays(list, tz) {
+            const days = {};
+            list.forEach((item) => {
+                const key = dateKey(item.dt, tz);
+                const hour = cityDate(item.dt, tz).getUTCHours();
+                if (!days[key]) {
+                    days[key] = { min: item.main.temp_min, max: item.main.temp_max, icon: item.weather[0].icon, gap: 99 };
+                }
+                const d = days[key];
+                d.min = Math.min(d.min, item.main.temp_min);
+                d.max = Math.max(d.max, item.main.temp_max);
+                // use the reading closest to midday as the day's icon
+                const gap = Math.abs(hour - 12);
+                if (gap < d.gap) {
+                    d.gap = gap;
+                    d.icon = item.weather[0].icon;
+                }
+            });
+
+            let html = "";
+            Object.keys(days).slice(0, 5).forEach((key) => {
+                const d = days[key];
+                const dayName = new Date(key + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+                html += `
+                    <div class="forecastRow d-flex align-items-center justify-content-between">
+                        <div class="d-flex gap-1 align-items-center">
+                            <img src="${iconUrl(d.icon)}" alt="" width="35px">
+                            <h6 class="m-0">${Math.round(d.max)}&deg; / ${Math.round(d.min)}&deg;C</h6>
+                        </div>
+                        <h6 class="m-0">${dayName}</h6>
+                        <h6 class="m-0">${key}</h6>
+                    </div>`;
+            });
+            $("forecastContainer").innerHTML = html;
+        }
+
+        function renderNextHours(list, tz) {
+            const now = Math.floor(Date.now() / 1000);
+            // each forecast entry covers 3 hours, so keep the one we're currently inside
+            const upcoming = list.filter((item) => item.dt >= now - 10800).slice(0, 6);
+
+            let html = "";
+            upcoming.forEach((item) => {
+                html += `
+                    <div class="todayTemp">
+                        <h6 class="m-0">${formatTime(item.dt, tz)}</h6>
+                        <img src="${iconUrl(item.weather[0].icon)}" alt="" width="35px">
+                        <h5>${item.main.temp.toFixed(1)}&deg;C</h5>
+                    </div>`;
+            });
+            $("todayTempContainer").innerHTML = html;
+        }
+
+        // ---------- main search ----------
         async function fetchData() {
+            const cityName = document.getElementsByClassName("inputfield")[0].value.trim();
+            if (!cityName) {
+                showError("Please type a city name.");
+                return;
+            }
 
-            let cityName = document.getElementsByClassName('inputfield')[0].value;
-            let requestData = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=ed493c16384282969d7f1241d72924cd&units=metric`)
-            let formattedData = await requestData.json();
-            console.log("Formatted Data: ", formattedData);
+            try {
+                const res = await fetch(`${BASE}/weather?q=${encodeURIComponent(cityName)}&appid=${API_KEY}&units=metric`);
+                const data = await res.json();
 
-            let responseCityName = formattedData.name
-            let responseTemp = formattedData.main.temp
-            let skyDescription = formattedData.weather[0].description
+                if (!res.ok) {
+                    showError(res.status === 404 ? `City "${cityName}" not found. Check the spelling and try again.`
+                                                 : "Could not get weather data. Please try again later.");
+                    return;
+                }
+                showError("");
 
-            $('#cityName')[0].innerText = responseCityName;
-            $("#cityTemp")[0].innerText = responseTemp
-            $("#skyDesc")[0].innerText = skyDescription
-            $("#humidity")[0].innerText=formattedData.main.humidity
-            $("#pressure")[0].innerText=formattedData.main.pressure
-            $("#feelsLike")[0].innerText=formattedData.main.feels_like
-            $("#visiblity")[0].innerText=formattedData.visibility
+                const tz = data.timezone;
 
+                $("cityName").innerText = `${data.name}, ${data.sys.country}`;
+                $("cityTemp").innerText = data.main.temp.toFixed(1);
+                $("skyDesc").innerText = data.weather[0].description;
+                $("humidity").innerText = `${data.main.humidity} %`;
+                $("pressure").innerText = `${data.main.pressure} hPa`;
+                $("feelsLike").innerText = `${data.main.feels_like.toFixed(1)} \u00B0C`;
+                $("visibility").innerText = `${(data.visibility / 1000).toFixed(1)} km`;
 
-            //Updating date and time
-            let properDate = dateFormat(formattedData.dt);
-            let date = properDate.split(',')[0]
-            let time = properDate.split(',')[1]
-            $("#date")[0].innerText = date;
-            $("#time")[0].innerText = time
+                // date and time in the searched city's local time
+                $("date").innerText = formatDate(data.dt, tz);
+                $("time").innerText = formatTime(data.dt, tz);
 
-            //updating sunrise and sunset
-            let sunriseTimeStamp = formattedData.sys.sunrise;
-            let sunsetTimeStamp = formattedData.sys.sunset;
-            let properSunriseTime = dateFormat(sunriseTimeStamp).split(',')[1]
-            let properSunsetTime = dateFormat(sunsetTimeStamp).split(',')[1];
+                $("sunriseTime").innerText = formatTime(data.sys.sunrise, tz);
+                $("sunsetTime").innerText = formatTime(data.sys.sunset, tz);
 
-            $("#sunriseTime")[0].innerText = properSunriseTime
-            $("#sunsetTime")[0].innerText = properSunsetTime
-
-
-            let lat = formattedData.coord.lat;
-            let lon = formattedData.coord.lon;
-
-            fetchAQIData(lat, lon);
-            nextFiveDays(lat, lon);
-            todayTemps(lat, lon);
+                const { lat, lon } = data.coord;
+                fetchAQIData(lat, lon);
+                fetchForecast(lat, lon);
+            } catch (err) {
+                console.error(err);
+                showError("Network error. Check your connection and try again.");
+            }
         }
 
+        // click the icon or press Enter to search
+        $("searchBtn").addEventListener("click", fetchData);
+        document.getElementsByClassName("inputfield")[0].addEventListener("keydown", (e) => {
+            if (e.key === "Enter") fetchData();
+        });
     </script>
-
 </body>
 
 </html>
